@@ -1,0 +1,10 @@
+{
+  "id": "graphify-obsidian-plugin",
+  "name": "Graphify",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Obsidian-first Graphify plugin with Claude Code/Codex bridge and vault graph commands.",
+  "author": "yiming",
+  "authorUrl": "https://github.com/dandandujie",
+  "isDesktopOnly": true
+}

@@ -18,7 +18,13 @@ _CODE_EXTENSIONS = {
 }
 
 
-def _rebuild_code(watch_path: Path, *, follow_symlinks: bool = False) -> bool:
+def _rebuild_code(
+    watch_path: Path,
+    *,
+    follow_symlinks: bool = False,
+    state_dir: Path | None = None,
+    report_path: Path | None = None,
+) -> bool:
     """Re-run AST extraction + build + cluster + report for code files. No LLM needed.
 
     Returns True on success, False on error.
@@ -35,6 +41,7 @@ def _rebuild_code(watch_path: Path, *, follow_symlinks: bool = False) -> bool:
         code_files = [
             f for f in code_files
             if "graphify-out" not in f.parts
+            and ".graphify" not in f.parts
             and "__pycache__" not in f.parts
         ]
 
@@ -58,12 +65,14 @@ def _rebuild_code(watch_path: Path, *, follow_symlinks: bool = False) -> bool:
         labels = {cid: "Community " + str(cid) for cid in communities}
         questions = suggest_questions(G, communities, labels)
 
-        out = watch_path / "graphify-out"
+        out = state_dir or (watch_path / "graphify-out")
         out.mkdir(exist_ok=True)
 
         report = generate(G, communities, cohesion, labels, gods, surprises, detection,
                           {"input": 0, "output": 0}, str(watch_path), suggested_questions=questions)
-        (out / "GRAPH_REPORT.md").write_text(report)
+        target_report = report_path or (out / "GRAPH_REPORT.md")
+        target_report.parent.mkdir(parents=True, exist_ok=True)
+        target_report.write_text(report)
         to_json(G, communities, str(out / "graph.json"))
 
         # clear stale needs_update flag if present
@@ -73,7 +82,8 @@ def _rebuild_code(watch_path: Path, *, follow_symlinks: bool = False) -> bool:
 
         print(f"[graphify watch] Rebuilt: {G.number_of_nodes()} nodes, "
               f"{G.number_of_edges()} edges, {len(communities)} communities")
-        print(f"[graphify watch] graph.json and GRAPH_REPORT.md updated in {out}")
+        print(f"[graphify watch] graph.json updated in {out}")
+        print(f"[graphify watch] report updated at {target_report}")
         return True
 
     except Exception as exc:
@@ -81,14 +91,20 @@ def _rebuild_code(watch_path: Path, *, follow_symlinks: bool = False) -> bool:
         return False
 
 
-def _notify_only(watch_path: Path) -> None:
+def _notify_only(
+    watch_path: Path,
+    *,
+    state_dir: Path | None = None,
+    update_hint: str | None = None,
+) -> None:
     """Write a flag file and print a notification (fallback for non-code-only corpora)."""
-    flag = watch_path / "graphify-out" / "needs_update"
+    flag_root = state_dir or (watch_path / "graphify-out")
+    flag = flag_root / "needs_update"
     flag.parent.mkdir(parents=True, exist_ok=True)
     flag.write_text("1")
     print(f"\n[graphify watch] New or changed files detected in {watch_path}")
     print("[graphify watch] Non-code files changed - semantic re-extraction requires LLM.")
-    print("[graphify watch] Run `/graphify --update` in Claude Code to update the graph.")
+    print(f"[graphify watch] {update_hint or 'Run `/graphify --update` in Claude Code to update the graph.'}")
     print(f"[graphify watch] Flag written to {flag}")
 
 
@@ -96,7 +112,14 @@ def _has_non_code(changed_paths: list[Path]) -> bool:
     return any(p.suffix.lower() not in _CODE_EXTENSIONS for p in changed_paths)
 
 
-def watch(watch_path: Path, debounce: float = 3.0) -> None:
+def watch(
+    watch_path: Path,
+    debounce: float = 3.0,
+    *,
+    state_dir: Path | None = None,
+    report_path: Path | None = None,
+    update_hint: str | None = None,
+) -> None:
     """
     Watch watch_path for new or modified files and auto-update the graph.
 
@@ -127,7 +150,7 @@ def watch(watch_path: Path, debounce: float = 3.0) -> None:
                 return
             if any(part.startswith(".") for part in path.parts):
                 return
-            if "graphify-out" in path.parts:
+            if "graphify-out" in path.parts or ".graphify" in path.parts:
                 return
             last_trigger = time.monotonic()
             pending = True
@@ -152,9 +175,9 @@ def watch(watch_path: Path, debounce: float = 3.0) -> None:
                 changed.clear()
                 print(f"\n[graphify watch] {len(batch)} file(s) changed")
                 if _has_non_code(batch):
-                    _notify_only(watch_path)
+                    _notify_only(watch_path, state_dir=state_dir, update_hint=update_hint)
                 else:
-                    _rebuild_code(watch_path)
+                    _rebuild_code(watch_path, state_dir=state_dir, report_path=report_path)
     except KeyboardInterrupt:
         print("\n[graphify watch] Stopped.")
     finally:

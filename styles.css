@@ -1,0 +1,35 @@
+.graphify-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.graphify-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.graphify-row input,
+.graphify-row select,
+.graphify-row textarea {
+  width: 100%;
+}
+
+.graphify-log {
+  min-height: 180px;
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.graphify-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}

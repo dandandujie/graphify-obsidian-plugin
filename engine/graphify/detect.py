@@ -293,7 +293,13 @@ def _is_ignored(path: Path, root: Path, patterns: list[str]) -> bool:
     return False
 
 
-def detect(root: Path, *, follow_symlinks: bool = False) -> dict:
+def detect(
+    root: Path,
+    *,
+    follow_symlinks: bool = False,
+    memory_dir: Path | None = None,
+    converted_dir: Path | None = None,
+) -> dict:
     files: dict[FileType, list[str]] = {
         FileType.CODE: [],
         FileType.DOCUMENT: [],
@@ -305,8 +311,9 @@ def detect(root: Path, *, follow_symlinks: bool = False) -> dict:
     skipped_sensitive: list[str] = []
     ignore_patterns = _load_graphifyignore(root)
 
-    # Always include graphify-out/memory/ - query results filed back into the graph
-    memory_dir = root / "graphify-out" / "memory"
+    # Always include memory/ - query results filed back into the graph.
+    # Legacy default stays graphify-out/memory for backward compatibility.
+    memory_dir = memory_dir or (root / "graphify-out" / "memory")
     scan_paths = [root]
     if memory_dir.exists():
         scan_paths.append(memory_dir)
@@ -338,7 +345,8 @@ def detect(root: Path, *, follow_symlinks: bool = False) -> dict:
                     seen.add(p)
                     all_files.append(p)
 
-    converted_dir = root / "graphify-out" / "converted"
+    # Legacy default stays graphify-out/converted for backward compatibility.
+    converted_dir = converted_dir or (root / "graphify-out" / "converted")
 
     for p in all_files:
         # For memory dir files, skip hidden/noise filtering
@@ -420,13 +428,19 @@ def save_manifest(files: dict[str, list[str]], manifest_path: str = _MANIFEST_PA
     Path(manifest_path).write_text(json.dumps(manifest, indent=2))
 
 
-def detect_incremental(root: Path, manifest_path: str = _MANIFEST_PATH) -> dict:
+def detect_incremental(
+    root: Path,
+    manifest_path: str = _MANIFEST_PATH,
+    *,
+    memory_dir: Path | None = None,
+    converted_dir: Path | None = None,
+) -> dict:
     """Like detect(), but returns only new or modified files since the last run.
 
     Compares current file mtimes against the stored manifest.
     Use for --update mode: re-extract only what changed, merge into existing graph.
     """
-    full = detect(root)
+    full = detect(root, memory_dir=memory_dir, converted_dir=converted_dir)
     manifest = load_manifest(manifest_path)
 
     if not manifest:

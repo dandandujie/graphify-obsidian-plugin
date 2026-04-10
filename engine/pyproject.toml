@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "graphifyy"
 version = "0.3.11"
-description = "AI coding assistant skill (Claude Code, Codex, OpenCode, OpenClaw) - turn any folder of code, docs, papers, or images into a queryable knowledge graph"
+description = "Graphify analysis engine for Obsidian-first workflows (index, update, query, report, ingest, watch)"
 readme = "README.md"
 license = { file = "LICENSE" }
 keywords = ["claude", "claude-code", "codex", "opencode", "knowledge-graph", "rag", "graphrag", "obsidian", "community-detection", "tree-sitter", "leiden", "llm"]
@@ -35,9 +35,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/safishamsi/graphify"
-Repository = "https://github.com/safishamsi/graphify"
-Issues = "https://github.com/safishamsi/graphify/issues"
+Homepage = "https://github.com/dandandujie/graphify-obsidian-plugin"
+Repository = "https://github.com/dandandujie/graphify-obsidian-plugin"
+Issues = "https://github.com/dandandujie/graphify-obsidian-plugin/issues"
 
 [project.optional-dependencies]
 mcp = ["mcp"]
@@ -56,4 +56,4 @@ where = ["."]
 include = ["graphify*"]
 
 [tool.setuptools.package-data]
-graphify = ["skill.md", "skill-codex.md", "skill-opencode.md", "skill-claw.md", "skill-windows.md"]
+graphify = ["skill.md", "skill-codex.md", "skill-opencode.md", "skill-claw.md", "skill-droid.md", "skill-windows.md"]

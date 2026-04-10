@@ -18,8 +18,16 @@ def file_hash(path: Path) -> str:
 
 
 def cache_dir(root: Path = Path(".")) -> Path:
-    """Returns graphify-out/cache/ - creates it if needed."""
-    d = Path(root) / "graphify-out" / "cache"
+    """Returns cache directory.
+
+    Default is graphify-out/cache/ for backward compatibility.
+    Can be overridden with GRAPHIFY_CACHE_DIR (used by Obsidian-first mode).
+    """
+    override = os.getenv("GRAPHIFY_CACHE_DIR", "").strip()
+    if override:
+        d = Path(override).expanduser()
+    else:
+        d = Path(root) / "graphify-out" / "cache"
     d.mkdir(parents=True, exist_ok=True)
     return d
 

@@ -12,10 +12,29 @@ build/
 .ruff_cache/
 *.so
 *.egg
-.graphify/
-graphify-out/
+/.graphify/
+/graphify-out/
 .graphify_*.json
 .graphify_python
 .claude/
 skills/
 docs/superpowers/
+.ace-tool/
+node_modules/
+*.tsbuildinfo
+coverage/
+
+# Python engine subproject
+engine/.venv/
+engine/venv/
+engine/env/
+engine/.pytest_cache/
+engine/.mypy_cache/
+engine/.ruff_cache/
+engine/build/
+engine/dist/
+engine/*.egg-info/
+
+# Local leftovers from pre-restructure runs
+graphifyy.egg-info/
+obsidian-plugin/

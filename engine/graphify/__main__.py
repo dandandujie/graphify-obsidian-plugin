@@ -80,6 +80,26 @@ _PLATFORM_CONFIG: dict[str, dict] = {
 }
 
 
+def _print_legacy_deprecation(cmd: str) -> None:
+    """Warn that legacy skill-install flows are being sunset."""
+    print(
+        f"[graphify] DEPRECATION: `{cmd}` is part of the legacy multi-platform skill flow.\n"
+        "It remains available for one transition release and will be removed in the next major version.\n"
+        "Use the Obsidian-first interface instead: `graphify obsidian ...`.",
+        file=sys.stderr,
+    )
+
+
+def _print_removed_command(cmd: str) -> None:
+    """Explain that a legacy command is intentionally removed in Obsidian-first mode."""
+    print(
+        f"error: `{cmd}` was removed from the default CLI surface in Obsidian-first mode.\n"
+        "Use `graphify obsidian ...` instead.\n"
+        "If you still need legacy graphify outputs, pin to an older release.",
+        file=sys.stderr,
+    )
+
+
 def install(platform: str = "claude") -> None:
     if platform not in _PLATFORM_CONFIG:
         print(
@@ -309,15 +329,16 @@ def main() -> None:
         print("Usage: graphify <command>")
         print()
         print("Commands:")
-        print("  install [--platform P]  copy skill to platform config dir (claude|windows|codex|opencode|claw|droid)")
-        print("  query \"<question>\"       BFS traversal of graph.json for a question")
-        print("    --dfs                   use depth-first instead of breadth-first")
-        print("    --budget N              cap output at N tokens (default 2000)")
-        print("    --graph <path>          path to graph.json (default graphify-out/graph.json)")
-        print("  benchmark [graph.json]  measure token reduction vs naive full-corpus approach")
-        print("  hook install            install post-commit/post-checkout git hooks (all platforms)")
-        print("  hook uninstall          remove git hooks")
-        print("  hook status             check if git hooks are installed")
+        print("  obsidian <subcommand>   Obsidian-first workflow")
+        print("    index --vault <path>   build index into <vault>/.graphify")
+        print("    update --vault <path>  incremental update")
+        print("    query --vault <path> --question \"...\" [--mode bfs|dfs --depth N --budget N]")
+        print("    report --vault <path>  regenerate Graphify/GRAPH_REPORT.md")
+        print("    ingest --vault <path> --url <url> [--author NAME --contributor NAME]")
+        print("    watch --vault <path> [start|stop|status] [--debounce N]")
+        print()
+        print("Legacy compatibility (deprecated, transition only):")
+        print("  install [--platform P]   copy skill to platform config dir (claude|windows|codex|opencode|claw|droid)")
         print("  claude install          write graphify section to CLAUDE.md + PreToolUse hook (Claude Code)")
         print("  claude uninstall        remove graphify section from CLAUDE.md + PreToolUse hook")
         print("  codex install           write graphify section to AGENTS.md (Codex)")
@@ -332,7 +353,11 @@ def main() -> None:
         return
 
     cmd = sys.argv[1]
-    if cmd == "install":
+    if cmd == "obsidian":
+        from graphify.obsidian import run_obsidian_cli
+        sys.exit(run_obsidian_cli(sys.argv[2:]))
+    elif cmd == "install":
+        _print_legacy_deprecation("install")
         # Default to windows platform on Windows, claude elsewhere
         default_platform = "windows" if platform.system() == "Windows" else "claude"
         chosen_platform = default_platform
@@ -349,6 +374,7 @@ def main() -> None:
                 i += 1
         install(platform=chosen_platform)
     elif cmd == "claude":
+        _print_legacy_deprecation("claude")
         subcmd = sys.argv[2] if len(sys.argv) > 2 else ""
         if subcmd == "install":
             claude_install()
@@ -358,6 +384,7 @@ def main() -> None:
             print("Usage: graphify claude [install|uninstall]", file=sys.stderr)
             sys.exit(1)
     elif cmd in ("codex", "opencode", "claw", "droid"):
+        _print_legacy_deprecation(cmd)
         subcmd = sys.argv[2] if len(sys.argv) > 2 else ""
         if subcmd == "install":
             _agents_install(Path("."), cmd)
@@ -366,61 +393,9 @@ def main() -> None:
         else:
             print(f"Usage: graphify {cmd} [install|uninstall]", file=sys.stderr)
             sys.exit(1)
-    elif cmd == "hook":
-        from graphify.hooks import install as hook_install, uninstall as hook_uninstall, status as hook_status
-        subcmd = sys.argv[2] if len(sys.argv) > 2 else ""
-        if subcmd == "install":
-            print(hook_install(Path(".")))
-        elif subcmd == "uninstall":
-            print(hook_uninstall(Path(".")))
-        elif subcmd == "status":
-            print(hook_status(Path(".")))
-        else:
-            print("Usage: graphify hook [install|uninstall|status]", file=sys.stderr)
-            sys.exit(1)
-    elif cmd == "query":
-        if len(sys.argv) < 3:
-            print("Usage: graphify query \"<question>\" [--dfs] [--budget N] [--graph path]", file=sys.stderr)
-            sys.exit(1)
-        from graphify.serve import _load_graph, _score_nodes, _bfs, _dfs, _subgraph_to_text
-        question = sys.argv[2]
-        use_dfs = "--dfs" in sys.argv
-        budget = 2000
-        graph_path = "graphify-out/graph.json"
-        args = sys.argv[3:]
-        i = 0
-        while i < len(args):
-            if args[i] == "--budget" and i + 1 < len(args):
-                budget = int(args[i + 1]); i += 2
-            elif args[i].startswith("--budget="):
-                budget = int(args[i].split("=", 1)[1]); i += 1
-            elif args[i] == "--graph" and i + 1 < len(args):
-                graph_path = args[i + 1]; i += 2
-            else:
-                i += 1
-        G = _load_graph(graph_path)
-        terms = [t.lower() for t in question.split() if len(t) > 2]
-        scored = _score_nodes(G, terms)
-        if not scored:
-            print("No matching nodes found.")
-            sys.exit(0)
-        start = [nid for _, nid in scored[:5]]
-        nodes, edges = (_dfs if use_dfs else _bfs)(G, start, depth=2)
-        print(_subgraph_to_text(G, nodes, edges, token_budget=budget))
-    elif cmd == "benchmark":
-        from graphify.benchmark import run_benchmark, print_benchmark
-        graph_path = sys.argv[2] if len(sys.argv) > 2 else "graphify-out/graph.json"
-        # Try to load corpus_words from detect output
-        corpus_words = None
-        detect_path = Path(".graphify_detect.json")
-        if detect_path.exists():
-            try:
-                detect_data = json.loads(detect_path.read_text(encoding="utf-8"))
-                corpus_words = detect_data.get("total_words")
-            except Exception:
-                pass
-        result = run_benchmark(graph_path, corpus_words=corpus_words)
-        print_benchmark(result)
+    elif cmd in ("hook", "query", "benchmark"):
+        _print_removed_command(cmd)
+        sys.exit(1)
     else:
         print(f"error: unknown command '{cmd}'", file=sys.stderr)
         print("Run 'graphify --help' for usage.", file=sys.stderr)
